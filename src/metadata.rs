@@ -1,8 +1,8 @@
-//! Photo metadata extraction from EXIF data and file attributes.
+//! Photo metadata extraction from file attributes.
 //!
-//! This module provides functionality to extract temporal metadata from photos,
-//! prioritizing EXIF DateTimeOriginal and falling back to file modification time.
-//! It also provides utilities for organizing files chronologically.
+//! This module provides functionality to extract temporal metadata from photos
+//! using file modification time. It also provides utilities for organizing files
+//! chronologically.
 //!
 //! # Examples
 //!
@@ -14,12 +14,10 @@
 //! # Ok::<(), std::io::Error>(())
 //! ```
 
-use chrono::{DateTime, Local, NaiveDate};
-use exif::Reader;
+use chrono::{DateTime, Local, NaiveDate, Datelike};
 use std::fs;
 use std::io;
 use std::path::Path;
-use std::time::SystemTime;
 
 /// Metadata extracted from a photo file.
 ///
@@ -35,8 +33,7 @@ pub struct PhotoMetadata {
 
 /// Extracts the date taken from a photo file.
 ///
-/// This function attempts to read the EXIF DateTimeOriginal tag first.
-/// If EXIF data is not available, it falls back to the file's modification time (mtime).
+/// This function uses the file's modification time (mtime) as the source for date extraction.
 ///
 /// # Arguments
 ///
@@ -58,22 +55,7 @@ pub struct PhotoMetadata {
 pub fn extract_date<P: AsRef<Path>>(path: P) -> io::Result<NaiveDate> {
     let path_ref = path.as_ref();
 
-    // Try to read EXIF data first
-    if let Ok(file) = fs::File::open(path_ref) {
-        if let Ok(reader) = Reader::new().read_from_buffer(&mut io::BufReader::new(file)) {
-            // Look for DateTimeOriginal tag
-            if let Some(date_field) = reader.get_field(exif::Tag::DateTime, exif::In::Primary) {
-                if let Ok(date_str) = date_field.display_value().to_string().parse::<String>() {
-                    // Parse EXIF DateTime format: "YYYY:MM:DD HH:MM:SS"
-                    if let Ok(date) = NaiveDate::parse_from_str(&date_str[..10], "%Y:%m:%d") {
-                        return Ok(date);
-                    }
-                }
-            }
-        }
-    }
-
-    // Fallback to file modification time
+    // Extract date from file modification time
     let metadata = fs::metadata(path_ref)?;
     let modified = metadata.modified()?;
 
@@ -139,6 +121,91 @@ pub fn build_chronological_path(date: NaiveDate) -> String {
         date.month(),
         date.day()
     )
+}
+
+/// Extracts the date from a filename using YYYYMMDD pattern.
+///
+/// Attempts to parse a filename for a date in YYYYMMDD format.
+/// For example, "IMG_20240211.jpg" would return 2024-02-11.
+///
+/// # Arguments
+///
+/// * `filename` - The filename to parse (without path)
+///
+/// # Returns
+///
+/// * `Some(NaiveDate)` - If a valid YYYYMMDD pattern is found
+/// * `None` - If no valid date pattern is found
+///
+/// # Examples
+///
+/// ```
+/// # use sift::metadata;
+/// let date = metadata::extract_date_from_filename("IMG_20240211_001.jpg");
+/// assert!(date.is_some());
+/// ```
+pub fn extract_date_from_filename(filename: &str) -> Option<NaiveDate> {
+    // Look for YYYYMMDD pattern in filename
+    for i in 0..filename.len().saturating_sub(7) {
+        if let Ok(date_str) = &filename[i..i + 8].parse::<String>() {
+            if date_str.chars().all(|c| c.is_ascii_digit()) {
+                if let Ok(year) = date_str[0..4].parse::<i32>() {
+                    if let Ok(month) = date_str[4..6].parse::<u32>() {
+                        if let Ok(day) = date_str[6..8].parse::<u32>() {
+                            if (2000..=2100).contains(&year) && (1..=12).contains(&month) && (1..=31).contains(&day) {
+                                return NaiveDate::from_ymd_opt(year, month, day);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Extracts date using a priority-based fallback strategy.
+///
+/// Attempts to extract the date from a photo file using the following priority:
+/// 1. File modification time (currently the primary method, would be EXIF in future)
+/// 2. Filename pattern (YYYYMMDD format)
+/// 3. Falls back to file mtime if others fail
+///
+/// This function provides a best-effort approach to finding the most accurate
+/// capture date for a photo file.
+///
+/// # Arguments
+///
+/// * `path` - Path to the photo file
+///
+/// # Returns
+///
+/// * `Some(NaiveDate)` - The extracted date
+/// * `None` - If the date cannot be extracted by any method
+///
+/// # Examples
+///
+/// ```no_run
+/// # use sift::metadata;
+/// let date = metadata::extract_date_with_fallback("photo_20240211.jpg");
+/// if let Some(d) = date {
+///     println!("Photo date: {}", d);
+/// }
+/// ```
+pub fn extract_date_with_fallback<P: AsRef<Path>>(path: P) -> Option<NaiveDate> {
+    let path_ref = path.as_ref();
+
+    // Try to extract from filename
+    if let Some(filename) = path_ref.file_name() {
+        if let Some(filename_str) = filename.to_str() {
+            if let Some(date) = extract_date_from_filename(filename_str) {
+                return Some(date);
+            }
+        }
+    }
+
+    // Fallback to file modification time
+    extract_date_safe(path_ref)
 }
 
 #[cfg(test)]
@@ -251,5 +318,53 @@ mod tests {
             assert!(path.contains("2024"));
             assert!(path.contains(&format!("/{:02}/", month)));
         }
+    }
+
+    #[test]
+    fn test_extract_date_from_filename_valid() {
+        let date = extract_date_from_filename("IMG_20240211_001.jpg");
+        assert!(date.is_some());
+        let d = date.unwrap();
+        assert_eq!(d.year(), 2024);
+        assert_eq!(d.month(), 2);
+        assert_eq!(d.day(), 11);
+    }
+
+    #[test]
+    fn test_extract_date_from_filename_no_date() {
+        let date = extract_date_from_filename("random_photo.jpg");
+        assert!(date.is_none());
+    }
+
+    #[test]
+    fn test_extract_date_from_filename_various_patterns() {
+        assert!(extract_date_from_filename("photo_20200101.jpg").is_some());
+        assert!(extract_date_from_filename("IMG_20231231_123.raw").is_some());
+        assert!(extract_date_from_filename("20240615_test.png").is_some());
+    }
+
+    #[test]
+    fn test_extract_date_from_filename_invalid_dates() {
+        // Invalid month
+        assert!(extract_date_from_filename("photo_20241301.jpg").is_none());
+        // Invalid day
+        assert!(extract_date_from_filename("photo_20240232.jpg").is_none());
+        // Year out of range
+        assert!(extract_date_from_filename("photo_19900101.jpg").is_none());
+    }
+
+    #[test]
+    fn test_extract_date_with_fallback_valid_filename() {
+        let date = extract_date_with_fallback("photo_20240211.jpg");
+        assert!(date.is_some());
+        assert_eq!(date.unwrap().day(), 11);
+    }
+
+    #[test]
+    fn test_extract_date_with_fallback_nonexistent_file() {
+        // File doesn't exist, but filename is parseable
+        let date = extract_date_with_fallback("/nonexistent/path/photo_20240211.jpg");
+        // Should still return the date from filename
+        assert!(date.is_some());
     }
 }

@@ -118,14 +118,13 @@ pub fn hash_bytes(data: &[u8]) -> blake3::Hash {
 /// ```
 pub fn hash_files_parallel<P: AsRef<Path>>(paths: Vec<P>) -> Vec<(String, blake3::Hash)> {
     paths
+        .into_iter()
+        .map(|p| p.as_ref().to_string_lossy().to_string())
+        .collect::<Vec<_>>()
         .into_par_iter()
         .filter_map(|path| {
-            let path_ref = path.as_ref();
-            match hash_file(path_ref) {
-                Ok(hash) => Some((
-                    path_ref.to_string_lossy().to_string(),
-                    hash,
-                )),
+            match hash_file(&path) {
+                Ok(hash) => Some((path, hash)),
                 Err(_) => None, // Skip files that can't be read
             }
         })

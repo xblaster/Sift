@@ -7,7 +7,7 @@
 //!
 //! - **Blake3 Hashing**: Fast, parallelized file hashing for duplicate detection
 //! - **Local Index**: Persistent indexing for idempotent operations
-//! - **EXIF Extraction**: Automatic date extraction with mtime fallback
+//! - **Date Extraction**: Automatic date extraction from file metadata
 //! - **Chronological Organization**: Automatic folder hierarchy (YYYY/MM/DD/)
 //! - **Geographic Clustering**: DBSCAN-based spatial clustering with reverse geocoding
 //! - **Network Optimization**: Buffered I/O and exponential backoff retry logic
@@ -19,7 +19,7 @@
 //!
 //! - `hash`: Blake3 hashing engine with parallelization
 //! - `index`: Persistent deduplication index
-//! - `metadata`: EXIF extraction and date handling
+//! - `metadata`: Date extraction from file metadata
 //! - `organization`: Folder structure management
 //! - `clustering`: Geographic clustering with reverse geocoding
 //! - `geonames`: Embedded location database
@@ -45,6 +45,7 @@
 //! sift benchmark /mnt/network/share --size-mb 500
 //! ```
 
+pub mod error;
 pub mod hash;
 pub mod index;
 pub mod metadata;
@@ -53,9 +54,11 @@ pub mod clustering;
 pub mod geonames;
 pub mod network_io;
 pub mod cli;
+pub mod organize;
 
 use std::error::Error;
 use cli::{Cli, Commands};
+use organize::{OrganizeContext, Orchestrator};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse_args();
@@ -69,17 +72,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             source,
             destination,
             with_clustering,
-            jobs: _,
-            index: _,
+            jobs,
+            index,
         } => {
-            println!(
-                "Organizing photos from {:?} to {:?}",
-                source, destination
-            );
-            if with_clustering {
-                println!("Geographic clustering enabled");
-            }
-            println!("Organization feature not yet implemented");
+            let ctx = OrganizeContext::new(source, destination, with_clustering, jobs, index);
+            let mut orchestrator = Orchestrator::new(ctx);
+            orchestrator.run()?;
         }
 
         Commands::Hash { path, recursive } => {

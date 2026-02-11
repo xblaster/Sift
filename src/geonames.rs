@@ -5,7 +5,6 @@
 //! The database includes the top major cities with populations.
 
 use crate::clustering::GeoNameEntry;
-use std::io;
 
 /// Returns an embedded list of major GeoNames entries for reverse geocoding.
 ///

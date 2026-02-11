@@ -20,7 +20,7 @@
 //! # Ok::<(), std::io::Error>(())
 //! ```
 
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Datelike};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::io;

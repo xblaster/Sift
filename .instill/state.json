@@ -1,11 +1,12 @@
 {
-  "last_updated": "2026-02-11T09:12:56.386Z",
+  "last_updated": "2026-02-11T21:46:40.933Z",
   "installed_skills": [
     "architect-vision-audit",
     "auto-doc-manager",
     "debug-stacktrace-resolver",
     "git-master",
     "improbable-recruiter",
+    "oss-community-catalyst",
     "security-audit",
     "tech-debt-loan-officer"
   ],
