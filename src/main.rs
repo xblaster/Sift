@@ -1,11 +1,58 @@
-mod hash;
-mod index;
-mod metadata;
-mod organization;
-mod clustering;
-mod geonames;
-mod network_io;
-mod cli;
+//! Sift - High-performance photo organization utility for network storage
+//!
+//! Sift is a Rust-based CLI tool for organizing massive photo libraries on network
+//! storage (SMB/NFS) with minimal dependencies and maximum performance.
+//!
+//! # Features
+//!
+//! - **Blake3 Hashing**: Fast, parallelized file hashing for duplicate detection
+//! - **Local Index**: Persistent indexing for idempotent operations
+//! - **EXIF Extraction**: Automatic date extraction with mtime fallback
+//! - **Chronological Organization**: Automatic folder hierarchy (YYYY/MM/DD/)
+//! - **Geographic Clustering**: DBSCAN-based spatial clustering with reverse geocoding
+//! - **Network Optimization**: Buffered I/O and exponential backoff retry logic
+//! - **Full CLI**: Comprehensive command-line interface with multiple operations
+//!
+//! # Architecture
+//!
+//! The application is organized into functional modules:
+//!
+//! - `hash`: Blake3 hashing engine with parallelization
+//! - `index`: Persistent deduplication index
+//! - `metadata`: EXIF extraction and date handling
+//! - `organization`: Folder structure management
+//! - `clustering`: Geographic clustering with reverse geocoding
+//! - `geonames`: Embedded location database
+//! - `network_io`: Network-optimized I/O operations
+//! - `cli`: Command-line argument parsing
+//!
+//! # Examples
+//!
+//! ```bash
+//! # Organize photos with automatic clustering
+//! sift organize /source/photos /destination/organized --with-clustering
+//!
+//! # Hash a single file
+//! sift hash /photos/image.jpg
+//!
+//! # Hash an entire directory in parallel
+//! sift hash /photos --recursive
+//!
+//! # View index contents
+//! sift index my_index.bin --limit 20
+//!
+//! # Benchmark network performance
+//! sift benchmark /mnt/network/share --size-mb 500
+//! ```
+
+pub mod hash;
+pub mod index;
+pub mod metadata;
+pub mod organization;
+pub mod clustering;
+pub mod geonames;
+pub mod network_io;
+pub mod cli;
 
 use std::error::Error;
 use cli::{Cli, Commands};

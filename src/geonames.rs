@@ -1,7 +1,15 @@
+//! GeoNames database for offline reverse geocoding.
+//!
+//! This module provides an embedded database of major cities and locations
+//! worldwide, enabling offline reverse geocoding without external API calls.
+//! The database includes the top major cities with populations.
+
 use crate::clustering::GeoNameEntry;
 use std::io;
 
-/// Embedded GeoNames city data (top cities with population > 15000)
+/// Returns an embedded list of major GeoNames entries for reverse geocoding.
+///
+/// This database contains major cities worldwide and is compiled into the binary.
 /// This is a minimal subset for reverse geocoding
 pub fn load_geonames() -> Vec<GeoNameEntry> {
     vec![
@@ -48,8 +56,34 @@ pub fn load_geonames() -> Vec<GeoNameEntry> {
     ]
 }
 
-/// Parse GeoNames cities1000.txt format (if using external file)
-/// Format: geonameid\t name\t asciiname\t alternatenames\t latitude\t longitude\t...
+/// Parses a single line from the GeoNames cities1000.txt file format.
+///
+/// This function can be used to load external GeoNames data files if you want
+/// to update the embedded database with more recent data or additional locations.
+///
+/// # Format
+///
+/// The GeoNames file uses tab-separated values:
+/// `geonameid\tname\tasciiname\talternatenames\tlatitude\tlongitude\t...\tpopulation\t...`
+///
+/// # Arguments
+///
+/// * `line` - A line from the GeoNames cities1000.txt file
+///
+/// # Returns
+///
+/// * `Some(GeoNameEntry)` - Successfully parsed entry
+/// * `None` - If the line cannot be parsed
+///
+/// # Examples
+///
+/// ```
+/// # use sift::geonames;
+/// let line = "2988507\tParis\tParis\t\t48.85341\t2.3488\t\t\t\t\t\t\t\t\t2161000\t";
+/// let entry = geonames::parse_geonames_line(line);
+/// assert!(entry.is_some());
+/// assert_eq!(entry.unwrap().name, "Paris");
+/// ```
 #[allow(dead_code)]
 pub fn parse_geonames_line(line: &str) -> Option<GeoNameEntry> {
     let parts: Vec<&str> = line.split('\t').collect();
@@ -75,21 +109,105 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_load_geonames() {
+    fn test_load_geonames_not_empty() {
         let locations = load_geonames();
         assert!(!locations.is_empty());
-        assert!(locations.iter().any(|l| l.name == "Paris"));
-        assert!(locations.iter().any(|l| l.name == "Tokyo"));
-        assert!(locations.iter().any(|l| l.name == "New York"));
     }
 
     #[test]
-    fn test_parse_geonames_line() {
+    fn test_load_geonames_contains_major_cities() {
+        let locations = load_geonames();
+        assert!(locations.iter().any(|l| l.name == "Paris"));
+        assert!(locations.iter().any(|l| l.name == "Tokyo"));
+        assert!(locations.iter().any(|l| l.name == "New York"));
+        assert!(locations.iter().any(|l| l.name == "London"));
+        assert!(locations.iter().any(|l| l.name == "Berlin"));
+    }
+
+    #[test]
+    fn test_load_geonames_has_coordinates() {
+        let locations = load_geonames();
+        for location in locations {
+            // Latitude should be between -90 and 90
+            assert!(location.latitude >= -90.0 && location.latitude <= 90.0);
+            // Longitude should be between -180 and 180
+            assert!(location.longitude >= -180.0 && location.longitude <= 180.0);
+        }
+    }
+
+    #[test]
+    fn test_load_geonames_population_reasonable() {
+        let locations = load_geonames();
+        for location in locations {
+            // Population should be non-negative and reasonable
+            assert!(location.population >= 0);
+            assert!(location.population < 100_000_000); // Less than 100 million
+        }
+    }
+
+    #[test]
+    fn test_parse_geonames_line_valid() {
         let line = "2988507\tParis\tParis\tParis city\t48.85341\t2.3488\t\t\t\t\t\t\t\t\t2161000\t";
         let entry = parse_geonames_line(line);
         assert!(entry.is_some());
         let e = entry.unwrap();
         assert_eq!(e.name, "Paris");
         assert_eq!(e.population, 2161000);
+        assert_eq!(e.latitude, 48.85341);
+        assert_eq!(e.longitude, 2.3488);
+    }
+
+    #[test]
+    fn test_parse_geonames_line_missing_population() {
+        let line = "2988507\tParis\tParis\tParis city\t48.85341\t2.3488\t\t\t\t\t\t\t\t\t\t";
+        let entry = parse_geonames_line(line);
+        assert!(entry.is_some());
+        let e = entry.unwrap();
+        assert_eq!(e.name, "Paris");
+        assert_eq!(e.population, 0); // Should default to 0
+    }
+
+    #[test]
+    fn test_parse_geonames_line_invalid_latitude() {
+        let line = "2988507\tParis\tParis\tParis city\tinvalid\t2.3488\t\t\t\t\t\t\t\t\t2161000\t";
+        let entry = parse_geonames_line(line);
+        assert!(entry.is_none());
+    }
+
+    #[test]
+    fn test_parse_geonames_line_invalid_longitude() {
+        let line = "2988507\tParis\tParis\tParis city\t48.85341\tinvalid\t\t\t\t\t\t\t\t\t2161000\t";
+        let entry = parse_geonames_line(line);
+        assert!(entry.is_none());
+    }
+
+    #[test]
+    fn test_parse_geonames_line_too_short() {
+        let line = "2988507\tParis\tParis";
+        let entry = parse_geonames_line(line);
+        assert!(entry.is_none());
+    }
+
+    #[test]
+    fn test_parse_geonames_line_empty() {
+        let line = "";
+        let entry = parse_geonames_line(line);
+        assert!(entry.is_none());
+    }
+
+    #[test]
+    fn test_parse_geonames_line_zero_population() {
+        let line = "123\tTestCity\tTestCity\t\t10.0\t20.0\t\t\t\t\t\t\t\t\t0\t";
+        let entry = parse_geonames_line(line);
+        assert!(entry.is_some());
+        assert_eq!(entry.unwrap().population, 0);
+    }
+
+    #[test]
+    fn test_load_geonames_all_have_names() {
+        let locations = load_geonames();
+        for location in locations {
+            assert!(!location.name.is_empty());
+        }
     }
 }
