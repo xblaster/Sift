@@ -175,7 +175,8 @@ mod tests {
         temp_file.flush()?;
 
         let hash = hash_file(temp_file.path())?;
-        assert_ne!(hash, blake3::Hash::default());
+        let zero_hash = blake3::Hash::from_bytes([0u8; 32]);
+        assert_ne!(hash, zero_hash);
         assert_eq!(hash.to_hex().len(), 64);
         Ok(())
     }

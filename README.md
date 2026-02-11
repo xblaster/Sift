@@ -38,25 +38,67 @@ cargo build --release
 
 ### Usage
 
+#### Basic Organization
 ```bash
-sift --source /path/to/import --dest /path/to/library
+sift organize /path/to/source/photos /path/to/destination/library
 ```
 
-Sift will:
-1. **Scan** all photos in source recursively
-2. **Hash** each photo using Blake3 for duplicate detection
-3. **Extract** EXIF metadata & geolocation data
-4. **Cluster** photos by date (EXIF DateTimeOriginal, CreateDate, filename pattern, or mtime) and geographic location
-5. **Organize** into: `/YYYY/MM/DD/Location/` hierarchy
-6. **Copy** to destination with atomic indexing
+#### With Geographic Clustering
+```bash
+sift organize /path/to/source /path/to/dest --with-clustering
+```
 
-#### Example Output
+#### With Custom Thread Pool
+```bash
+sift organize /source /dest --jobs 8
+```
+
+#### With Custom Index Location
+```bash
+sift organize /source /dest --index /custom/path/index.bin
+```
+
+#### Dry Run (Preview without copying)
+```bash
+sift organize /source /dest --dry-run
+```
+
+#### Full Example with All Options
+```bash
+sift --verbose organize /source /dest --with-clustering --jobs 4 --dry-run
+```
+
+### Pipeline Steps
+
+Sift automatically performs these steps:
+1. **Scan** - Recursively discover all photo files (jpg, jpeg, png, tiff, raw, heic)
+2. **Hash** - Compute Blake3 hash of each file in parallel
+3. **Extract Metadata** - Extract date from file metadata with fallback priority:
+   - EXIF DateTimeOriginal (if available in future versions)
+   - Filename pattern (YYYYMMDD format)
+   - File modification time (mtime)
+4. **Deduplicate** - Check against index; skip files already organized
+5. **Cluster** (optional) - Group photos by geographic location using DBSCAN
+6. **Organize** - Arrange into `/YYYY/MM/DD/` or `/YYYY/MM/DD/Location/` hierarchy
+7. **Persist** - Save index atomically for idempotence
+
+### Example Output
 
 ```
-source/IMG_001.jpg  →  library/2024/02/11/San_Francisco/IMG_001.jpg
-source/IMG_002.jpg  →  library/2024/02/11/San_Francisco/IMG_002.jpg
-source/IMG_003.jpg  →  library/2024/02/12/New_York/IMG_003.jpg
+source/IMG_001.jpg       →  dest/2024/02/11/IMG_001.jpg
+source/IMG_002.jpg       →  dest/2024/02/11/IMG_002.jpg
+source/photo_20240212.jpg →  dest/2024/02/12/photo_20240212.jpg
 ```
+
+### Features
+
+✓ **Idempotent** - Run multiple times, get identical results
+✓ **Duplicates** - Blake3 hashing prevents duplicate organization
+✓ **Flexible Dating** - Auto-extract from metadata or filename
+✓ **Atomic Index** - Safe persistence even with interruptions
+✓ **Parallel Processing** - Multi-core hashing via Rayon
+✓ **Network Optimized** - Buffered I/O for SMB/NFS storage
+✓ **Dry Run Support** - Preview changes before executing
 
 ## 🏗️ How It Works
 

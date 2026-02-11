@@ -78,6 +78,10 @@ pub enum Commands {
         /// Path to load/save index file
         #[arg(short, long)]
         index: Option<PathBuf>,
+
+        /// Preview changes without copying files
+        #[arg(short, long)]
+        dry_run: bool,
     },
 
     /// Hash a file or directory
@@ -169,12 +173,14 @@ mod tests {
                 with_clustering,
                 jobs,
                 index,
+                dry_run,
             } => {
                 assert_eq!(source.to_str().unwrap(), "/source");
                 assert_eq!(destination.to_str().unwrap(), "/dest");
                 assert!(!with_clustering);
                 assert!(jobs.is_none());
                 assert!(index.is_none());
+                assert!(!dry_run);
             }
             _ => panic!("Expected Organize command"),
         }
@@ -271,8 +277,8 @@ mod tests {
         let cli = Cli::try_parse_from(args).unwrap();
 
         match cli.command {
-            Commands::Cluster { path, details } => {
-                assert_eq!(path.to_str().unwrap(), "/photos");
+            Commands::Cluster { source, details } => {
+                assert_eq!(source.to_str().unwrap(), "/photos");
                 assert!(details);
             }
             _ => panic!("Expected Cluster command"),
@@ -335,6 +341,7 @@ mod tests {
             "4",
             "--index",
             "my_index.bin",
+            "--dry-run",
         ];
         let cli = Cli::try_parse_from(args).unwrap();
 
@@ -346,12 +353,40 @@ mod tests {
                 with_clustering,
                 jobs,
                 index,
+                dry_run,
             } => {
                 assert_eq!(source.to_str().unwrap(), "/src");
                 assert_eq!(destination.to_str().unwrap(), "/dst");
                 assert!(with_clustering);
                 assert_eq!(jobs, Some(4));
                 assert_eq!(index.as_ref().unwrap().to_str().unwrap(), "my_index.bin");
+                assert!(dry_run);
+            }
+            _ => panic!("Expected Organize command"),
+        }
+    }
+
+    #[test]
+    fn test_organize_dry_run_flag() {
+        let args = vec!["sift", "organize", "/source", "/dest", "--dry-run"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Organize { dry_run, .. } => {
+                assert!(dry_run);
+            }
+            _ => panic!("Expected Organize command"),
+        }
+    }
+
+    #[test]
+    fn test_organize_without_dry_run() {
+        let args = vec!["sift", "organize", "/source", "/dest"];
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        match cli.command {
+            Commands::Organize { dry_run, .. } => {
+                assert!(!dry_run);
             }
             _ => panic!("Expected Organize command"),
         }

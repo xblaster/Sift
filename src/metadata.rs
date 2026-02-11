@@ -147,19 +147,14 @@ pub fn build_chronological_path(date: NaiveDate) -> String {
 pub fn extract_date_from_filename(filename: &str) -> Option<NaiveDate> {
     // Look for YYYYMMDD pattern in filename
     for i in 0..filename.len().saturating_sub(7) {
-        if let Ok(date_str) = &filename[i..i + 8].parse::<String>() {
-            if date_str.chars().all(|c| c.is_ascii_digit()) {
-                if let Ok(year) = date_str[0..4].parse::<i32>() {
-                    if let Ok(month) = date_str[4..6].parse::<u32>() {
-                        if let Ok(day) = date_str[6..8].parse::<u32>() {
-                            if (2000..=2100).contains(&year) && (1..=12).contains(&month) && (1..=31).contains(&day) {
+        if let Ok(date_str) = &filename[i..i + 8].parse::<String>()
+            && date_str.chars().all(|c| c.is_ascii_digit())
+                && let Ok(year) = date_str[0..4].parse::<i32>()
+                    && let Ok(month) = date_str[4..6].parse::<u32>()
+                        && let Ok(day) = date_str[6..8].parse::<u32>()
+                            && (2000..=2100).contains(&year) && (1..=12).contains(&month) && (1..=31).contains(&day) {
                                 return NaiveDate::from_ymd_opt(year, month, day);
                             }
-                        }
-                    }
-                }
-            }
-        }
     }
     None
 }
@@ -196,13 +191,11 @@ pub fn extract_date_with_fallback<P: AsRef<Path>>(path: P) -> Option<NaiveDate> 
     let path_ref = path.as_ref();
 
     // Try to extract from filename
-    if let Some(filename) = path_ref.file_name() {
-        if let Some(filename_str) = filename.to_str() {
-            if let Some(date) = extract_date_from_filename(filename_str) {
+    if let Some(filename) = path_ref.file_name()
+        && let Some(filename_str) = filename.to_str()
+            && let Some(date) = extract_date_from_filename(filename_str) {
                 return Some(date);
             }
-        }
-    }
 
     // Fallback to file modification time
     extract_date_safe(path_ref)

@@ -131,7 +131,7 @@ where
     }
 
     Err(last_error.unwrap_or_else(|| {
-        io::Error::new(io::ErrorKind::Other, "Unknown error after retries")
+        io::Error::other("Unknown error after retries")
     }))
 }
 

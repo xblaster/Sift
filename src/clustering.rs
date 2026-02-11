@@ -148,8 +148,8 @@ pub fn dbscan(points: &[GeoPoint], eps_km: f64, min_points: usize) -> HashMap<us
         visited.insert(point.id);
 
         let mut seed_set = neighbors;
-        while !seed_set.is_empty() {
-            let current_point_id = seed_set.pop().unwrap();
+        while let Some(current_point_id) = seed_set.pop() {
+            
 
             if !visited.contains(&current_point_id) {
                 visited.insert(current_point_id);

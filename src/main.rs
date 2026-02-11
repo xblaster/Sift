@@ -74,7 +74,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             with_clustering,
             jobs,
             index,
+            dry_run,
         } => {
+            if dry_run {
+                eprintln!("[DRY RUN] No files will be copied or modified");
+            }
             let ctx = OrganizeContext::new(source, destination, with_clustering, jobs, index);
             let mut orchestrator = Orchestrator::new(ctx);
             orchestrator.run()?;

@@ -310,22 +310,38 @@ impl Orchestrator {
     }
 
     /// Scans the source directory for photo files.
+    ///
+    /// # Symlink Behavior
+    ///
+    /// The scanner follows symbolic links when encountered. If a symlink points to:
+    /// - **A file**: The file is checked for photo extensions and included if matched
+    /// - **A directory**: The directory contents are NOT recursively traversed (non-recursive scan)
+    ///
+    /// This behavior allows organizing photos from symlinked files while preventing
+    /// infinite loops from circular symlink references. For recursive scanning including
+    /// symlinked directories, use a dedicated recursive walker (planned for future).
+    ///
+    /// # Note on Recursion
+    ///
+    /// The current implementation only scans the immediate source directory (non-recursive).
+    /// To organize photos from nested directories, the source path should point to a
+    /// directory containing all photos, or use a glob pattern in future versions.
     fn scan_source(&self) -> io::Result<Vec<PathBuf>> {
         let mut files = Vec::new();
-        let photo_extensions = vec!["jpg", "jpeg", "png", "tiff", "raw", "heic"];
+        let photo_extensions = ["jpg", "jpeg", "png", "tiff", "raw", "heic"];
 
         for entry in fs::read_dir(&self.context.source)? {
             let entry = entry?;
             let path = entry.path();
 
-            if path.is_file() {
-                if let Some(ext) = path.extension() {
+            // Follow symlinks: is_file() returns true for symlinks pointing to files
+            if path.is_file()
+                && let Some(ext) = path.extension() {
                     let ext_lower = ext.to_string_lossy().to_lowercase();
                     if photo_extensions.contains(&ext_lower.as_str()) {
                         files.push(path);
                     }
                 }
-            }
         }
 
         Ok(files)
@@ -377,6 +393,7 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+    use chrono::Datelike;
 
     #[test]
     fn test_organize_context_creation() {

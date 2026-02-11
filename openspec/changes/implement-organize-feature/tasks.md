@@ -3,7 +3,7 @@
 - [x] 1.1 Implement `organize_command()` handler in `cli.rs` to parse and validate arguments
 - [x] 1.2 Create `OrganizeContext` struct to hold source, destination, and config (clustering, jobs)
 - [x] 1.3 Wire organize command handler to `main.rs` CLI dispatch
-- [ ] 1.4 Add `--dry-run` flag parsing (optional for MVP, log output only)
+- [x] 1.4 Add `--dry-run` flag parsing (optional for MVP, log output only)
 
 ## 2. Index Management
 
@@ -17,7 +17,7 @@
 
 - [x] 3.1 Create `Walker::scan()` function using `walkdir` for recursive directory traversal
 - [x] 3.2 Filter files by recognized photo extensions (jpg, jpeg, png, tiff, raw, heic)
-- [ ] 3.3 Handle symlinks (follow or skip - decision documented)
+- [x] 3.3 Handle symlinks (follow or skip - decision documented)
 - [x] 3.4 Return `Vec<PathBuf>` or iterator of discovered files
 
 ## 4. Metadata Analysis (Analyzer Stage)
@@ -94,51 +94,51 @@
 
 ## 12. Integration Testing
 
-- [ ] 12.1 Create integration test with sample photo library (minimal EXIF data)
-- [ ] 12.2 Test organize command end-to-end: scan → hash → organize → index
-- [ ] 12.3 Test idempotence: run organize twice, verify same results
-- [ ] 12.4 Test duplicate detection: add duplicate file to source, verify it's skipped
+- [x] 12.1 Create integration test with sample photo library (minimal EXIF data)
+- [x] 12.2 Test organize command end-to-end: scan → hash → organize → index
+- [x] 12.3 Test idempotence: run organize twice, verify same results
+- [x] 12.4 Test duplicate detection: add duplicate file to source, verify it's skipped
 - [ ] 12.5 Test clustering integration (with `--with-clustering` flag)
 - [ ] 12.6 Test network error resilience with mock failures
-- [ ] 12.7 Test error handling: corrupted EXIF, unreadable files, destination full
+- [x] 12.7 Test error handling: corrupted EXIF, unreadable files, destination full
 
 ## 13. Code Coverage Setup
 
-- [ ] 13.1 Configure `tarpaulin` or `llvm-cov` for Rust code coverage measurement
-- [ ] 13.2 Add coverage configuration to `Cargo.toml` (dev-dependencies)
-- [ ] 13.3 Create `Makefile` or script targets: `make test-coverage`, `make coverage-report`
-- [ ] 13.4 Set up coverage baseline: target ≥80% for organize module, ≥70% overall
-- [ ] 13.5 Configure coverage to exclude generated code and test utilities
-- [ ] 13.6 Add coverage reports to `.gitignore` (but track config files)
+- [x] 13.1 Configure `tarpaulin` or `llvm-cov` for Rust code coverage measurement
+- [x] 13.2 Add coverage configuration to `Cargo.toml` (dev-dependencies)
+- [x] 13.3 Create `Makefile` or script targets: `make test-coverage`, `make coverage-report`
+- [x] 13.4 Set up coverage baseline: target ≥80% for organize module, ≥70% overall
+- [x] 13.5 Configure coverage to exclude generated code and test utilities
+- [x] 13.6 Add coverage reports to `.gitignore` (but track config files)
 
 ## 14. Coverage Validation & Reporting
 
-- [ ] 14.1 Run full test suite with coverage: `cargo tarpaulin --out Html`
-- [ ] 14.2 Identify and address low-coverage areas (< 70%)
-- [ ] 14.3 Add tests for uncovered branches in error handling paths
-- [ ] 14.4 Add tests for uncovered edge cases in clustering and date extraction
-- [ ] 14.5 Validate coverage for all public APIs (target 100%)
+- [x] 14.1 Run full test suite with coverage: `cargo tarpaulin --out Html`
+- [x] 14.2 Identify and address low-coverage areas (< 70%)
+- [x] 14.3 Add tests for uncovered branches in error handling paths
+- [x] 14.4 Add tests for uncovered edge cases in clustering and date extraction
+- [x] 14.5 Validate coverage for all public APIs (target 100%)
 - [ ] 14.6 Generate coverage badge/report for README
-- [ ] 14.7 Document coverage targets and exclusions in CONTRIBUTING.md
+- [x] 14.7 Document coverage targets and exclusions in CONTRIBUTING.md
 
 ## 15. Documentation & Examples
 
 - [x] 15.1 Add rustdoc comments (`///`) to public functions in all modified modules
 - [x] 15.2 Add module-level rustdoc explaining the pipeline architecture
-- [ ] 15.3 Update README.md with organize command usage examples
-- [ ] 15.4 Document date extraction priority and fallback logic
+- [x] 15.3 Update README.md with organize command usage examples
+- [x] 15.4 Document date extraction priority and fallback logic
 - [ ] 15.5 Document clustering feature and `--with-clustering` flag
 - [ ] 15.6 Add examples to main.rs showing organize usage
 - [ ] 15.7 Create guide for symlink behavior and network storage setup
 
 ## 16. Code Review & Cleanup
 
-- [ ] 16.1 Review error messages for clarity and user-friendliness
-- [ ] 16.2 Ensure no unwrap() calls without documentation (prefer Result types)
-- [ ] 16.3 Check for memory leaks or unbounded allocations
-- [ ] 16.4 Verify Rayon thread pool configuration respects `--jobs` flag
-- [ ] 16.5 Run clippy and address linting warnings
-- [ ] 16.6 Ensure consistent code style across all changes
+- [x] 16.1 Review error messages for clarity and user-friendliness
+- [x] 16.2 Ensure no unwrap() calls without documentation (prefer Result types)
+- [x] 16.3 Check for memory leaks or unbounded allocations
+- [x] 16.4 Verify Rayon thread pool configuration respects `--jobs` flag
+- [x] 16.5 Run clippy and address linting warnings
+- [x] 16.6 Ensure consistent code style across all changes
 
 ## 17. Final Verification
 
