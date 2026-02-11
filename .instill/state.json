@@ -1,0 +1,23 @@
+{
+  "last_updated": "2026-02-11T09:12:56.386Z",
+  "installed_skills": [
+    "architect-vision-audit",
+    "auto-doc-manager",
+    "debug-stacktrace-resolver",
+    "git-master",
+    "improbable-recruiter",
+    "security-audit",
+    "tech-debt-loan-officer"
+  ],
+  "active_targets": [
+    "claude-code",
+    "gemini"
+  ],
+  "sources": [
+    {
+      "url": "https://github.com/xblaster/instill-skills",
+      "type": "github",
+      "name": "instill-skills"
+    }
+  ]
+}
