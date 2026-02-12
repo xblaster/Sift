@@ -15,6 +15,7 @@
 //! ```
 
 use chrono::{DateTime, Local, NaiveDate, Datelike};
+use exif::{In, Tag};
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -29,6 +30,37 @@ use std::path::Path;
 pub struct PhotoMetadata {
     pub file_path: String,
     pub date_taken: NaiveDate,
+}
+
+/// Extracts the date taken from a photo file's EXIF data.
+///
+/// Priority is given to the `DateTimeOriginal` tag.
+///
+/// # Arguments
+///
+/// * `path` - Path to the photo file
+///
+/// # Returns
+///
+/// * `Some(NaiveDate)` - The extracted date if found and valid
+/// * `None` - If EXIF data is missing or doesn't contain a valid date
+pub fn extract_exif_date<P: AsRef<Path>>(path: P) -> Option<NaiveDate> {
+    let file = fs::File::open(path).ok()?;
+    let mut reader = io::BufReader::new(file);
+    let exifreader = exif::Reader::new();
+    let exif = exifreader.read_from_container(&mut reader).ok()?;
+
+    if let Some(field) = exif.get_field(Tag::DateTimeOriginal, In::PRIMARY) {
+        let value = format!("{}", field.display_value());
+        // EXIF date format is usually "YYYY:MM:DD HH:MM:SS"
+        if value.len() >= 10 {
+            let year = value[0..4].parse::<i32>().ok()?;
+            let month = value[5..7].parse::<u32>().ok()?;
+            let day = value[8..10].parse::<u32>().ok()?;
+            return NaiveDate::from_ymd_opt(year, month, day);
+        }
+    }
+    None
 }
 
 /// Extracts the date taken from a photo file.
@@ -162,9 +194,9 @@ pub fn extract_date_from_filename(filename: &str) -> Option<NaiveDate> {
 /// Extracts date using a priority-based fallback strategy.
 ///
 /// Attempts to extract the date from a photo file using the following priority:
-/// 1. File modification time (currently the primary method, would be EXIF in future)
+/// 1. EXIF metadata (DateTimeOriginal)
 /// 2. Filename pattern (YYYYMMDD format)
-/// 3. Falls back to file mtime if others fail
+/// 3. File modification time (mtime)
 ///
 /// This function provides a best-effort approach to finding the most accurate
 /// capture date for a photo file.
@@ -177,27 +209,22 @@ pub fn extract_date_from_filename(filename: &str) -> Option<NaiveDate> {
 ///
 /// * `Some(NaiveDate)` - The extracted date
 /// * `None` - If the date cannot be extracted by any method
-///
-/// # Examples
-///
-/// ```no_run
-/// # use sift::metadata;
-/// let date = metadata::extract_date_with_fallback("photo_20240211.jpg");
-/// if let Some(d) = date {
-///     println!("Photo date: {}", d);
-/// }
-/// ```
 pub fn extract_date_with_fallback<P: AsRef<Path>>(path: P) -> Option<NaiveDate> {
     let path_ref = path.as_ref();
 
-    // Try to extract from filename
+    // 1. Try EXIF
+    if let Some(date) = extract_exif_date(path_ref) {
+        return Some(date);
+    }
+
+    // 2. Try to extract from filename
     if let Some(filename) = path_ref.file_name()
         && let Some(filename_str) = filename.to_str()
             && let Some(date) = extract_date_from_filename(filename_str) {
                 return Some(date);
             }
 
-    // Fallback to file modification time
+    // 3. Fallback to file modification time
     extract_date_safe(path_ref)
 }
 
@@ -334,6 +361,10 @@ mod tests {
         assert!(extract_date_from_filename("photo_20200101.jpg").is_some());
         assert!(extract_date_from_filename("IMG_20231231_123.raw").is_some());
         assert!(extract_date_from_filename("20240615_test.png").is_some());
+        assert_eq!(
+            extract_date_from_filename("20240211.jpg"),
+            Some(NaiveDate::from_ymd_opt(2024, 2, 11).unwrap())
+        );
     }
 
     #[test]
@@ -347,17 +378,25 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_date_with_fallback_valid_filename() {
-        let date = extract_date_with_fallback("photo_20240211.jpg");
-        assert!(date.is_some());
-        assert_eq!(date.unwrap().day(), 11);
+    fn test_extract_date_with_fallback_filename_priority() {
+        // Even if the file doesn't exist, if the filename has a date, it should be used
+        let path = Path::new("IMG_20200101_999.jpg");
+        let date = extract_date_with_fallback(path);
+        assert_eq!(date, Some(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()));
     }
 
     #[test]
-    fn test_extract_date_with_fallback_nonexistent_file() {
-        // File doesn't exist, but filename is parseable
-        let date = extract_date_with_fallback("/nonexistent/path/photo_20240211.jpg");
-        // Should still return the date from filename
+    fn test_extract_date_with_fallback_mtime_fallback() -> io::Result<()> {
+        let mut temp_file = NamedTempFile::new()?;
+        temp_file.write_all(b"test")?;
+        temp_file.flush()?;
+
+        // File name has no date
+        let date = extract_date_with_fallback(temp_file.path());
         assert!(date.is_some());
+        // Should be today's date (or whenever the file was created in the test)
+        let now = Local::now().naive_local().date();
+        assert_eq!(date.unwrap(), now);
+        Ok(())
     }
 }

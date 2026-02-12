@@ -355,7 +355,7 @@ impl Orchestrator {
                 match hash::hash_file(path) {
                     Ok(blake3_hash) => {
                         let hash_str = blake3_hash.to_hex().to_string();
-                        let date = metadata::extract_date_safe(path);
+                        let date = metadata::extract_date_with_fallback(path);
 
                         Some(FileRecord {
                             path: path.clone(),
