@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: sift
+            asset_name: sift-linux-amd64
+          - os: windows-latest
+            artifact_name: sift.exe
+            asset_name: sift-windows-amd64.exe
+          - os: macos-latest
+            artifact_name: sift
+            asset_name: sift-macos-amd64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Rename binary (Linux/macOS)
+        if: matrix.os != 'windows-latest'
+        run: mv target/release/${{ matrix.artifact_name }} target/release/${{ matrix.asset_name }}
+
+      - name: Rename binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: mv target/release/${{ matrix.artifact_name }} target/release/${{ matrix.asset_name }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: target/release/${{ matrix.asset_name }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
