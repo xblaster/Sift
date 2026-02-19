@@ -48,6 +48,66 @@ pub struct Cli {
     pub verbose: bool,
 }
 
+/// Sub-actions for the `onedrive` command.
+#[derive(Subcommand)]
+pub enum OneDriveAction {
+    /// Scan OneDrive and print photo metadata — no changes made, no files downloaded.
+    ///
+    /// Uses the Graph API delta endpoint to list photos with their capture date,
+    /// GPS coordinates, and server-computed quickXorHash. Subsequent calls fetch
+    /// only items that changed since the last scan.
+    ///
+    /// # Example
+    ///
+    /// ```bash
+    /// export SIFT_ONEDRIVE_CLIENT_ID="<your-azure-app-id>"
+    /// sift onedrive scan
+    /// sift onedrive scan --full   # force a full re-scan
+    /// ```
+    Scan {
+        /// Azure AD Application (client) ID.
+        /// Register a free "Mobile and desktop" app at portal.azure.com with
+        /// the `Files.ReadWrite` and `offline_access` scopes.
+        #[arg(long, env = "SIFT_ONEDRIVE_CLIENT_ID")]
+        client_id: String,
+
+        /// Ignore the stored deltaLink and perform a full library scan.
+        #[arg(long)]
+        full: bool,
+    },
+
+    /// Organize OneDrive photos in-place using only Graph API calls — zero downloads.
+    ///
+    /// Photos are moved to `/{dest-folder}/YYYY/MM/DD/` based on their EXIF
+    /// capture date (from the Graph API `photo` facet — no download needed).
+    /// Duplicates are detected via the server-computed `quickXorHash`.
+    ///
+    /// # Example
+    ///
+    /// ```bash
+    /// export SIFT_ONEDRIVE_CLIENT_ID="<your-azure-app-id>"
+    /// sift onedrive organize --dry-run
+    /// sift onedrive organize --dest-folder "Photos/Sorted"
+    /// ```
+    Organize {
+        /// Azure AD Application (client) ID.
+        #[arg(long, env = "SIFT_ONEDRIVE_CLIENT_ID")]
+        client_id: String,
+
+        /// Top-level OneDrive folder to organize into.
+        /// Photos land at `/{dest-folder}/YYYY/MM/DD/filename.jpg`.
+        #[arg(long, default_value = "Organized")]
+        dest_folder: String,
+
+        /// Preview planned moves without calling the Graph API move endpoint.
+        #[arg(short, long)]
+        dry_run: bool,
+    },
+
+    /// Remove the cached OAuth2 token, forcing re-authentication on next use.
+    Logout,
+}
+
 /// Available CLI commands for Sift.
 ///
 /// Each variant represents a different operation the user can perform.
@@ -130,6 +190,21 @@ pub enum Commands {
         /// Number of test iterations
         #[arg(short = 'n', long, default_value = "5")]
         iterations: usize,
+    },
+
+    /// Scan or organize photos stored on OneDrive without downloading any files.
+    ///
+    /// Uses the Microsoft Graph API to read photo metadata (capture date, GPS,
+    /// content hash) and to move files into a chronological folder hierarchy —
+    /// all without transferring a single byte of photo data to this machine.
+    ///
+    /// Requires an Azure AD Application client ID. Register a free "Mobile and
+    /// desktop" app at <https://portal.azure.com> with scopes `Files.ReadWrite`
+    /// and `offline_access`. Then set `SIFT_ONEDRIVE_CLIENT_ID` or pass
+    /// `--client-id`.
+    OneDrive {
+        #[command(subcommand)]
+        action: OneDriveAction,
     },
 }
 

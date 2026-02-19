@@ -55,6 +55,7 @@ pub mod geonames;
 pub mod network_io;
 pub mod cli;
 pub mod organize;
+pub mod onedrive;
 
 use std::error::Error;
 use cli::{Cli, Commands};
@@ -173,6 +174,91 @@ fn main() -> Result<(), Box<dyn Error>> {
                 if details {
                     for &p_id in &cluster_points {
                         println!("  - {:?}", paths[p_id]);
+                    }
+                }
+            }
+        }
+
+        Commands::OneDrive { action } => {
+            use cli::OneDriveAction;
+            use onedrive::{DeltaState, OneDriveClient, OneDrivePipeline, PipelineConfig};
+
+            match action {
+                OneDriveAction::Scan { client_id, full } => {
+                    let mut client = OneDriveClient::authenticate(&client_id)?;
+                    let mut state = DeltaState::load()?;
+                    if full {
+                        state.reset();
+                    }
+                    println!(
+                        "Scanning OneDrive ({}scan)...",
+                        if state.delta_link.is_some() { "incremental " } else { "full " }
+                    );
+                    let (records, new_delta_link) = client.scan_photos(&state)?;
+
+                    let photos: Vec<_> = records.iter().filter(|r| !r.deleted).collect();
+                    let with_date = photos.iter().filter(|r| r.taken_date.is_some()).count();
+                    let with_gps = photos.iter().filter(|r| r.location.is_some()).count();
+                    let with_hash = photos.iter().filter(|r| r.quick_xor_hash.is_some()).count();
+
+                    println!("\nScan summary:");
+                    println!("  Total photos : {}", photos.len());
+                    println!("  With date    : {} (from EXIF via Graph API — no download)", with_date);
+                    println!("  With GPS     : {} (from location facet — no download)", with_gps);
+                    println!("  With hash    : {} (quickXorHash, server-computed)", with_hash);
+
+                    if cli.verbose {
+                        println!("\nFirst 20 records:");
+                        for r in photos.iter().take(20) {
+                            println!(
+                                "  {:40} | date: {:?} | gps: {:?} | hash: {}",
+                                r.name,
+                                r.taken_date,
+                                r.location,
+                                r.quick_xor_hash.as_deref().unwrap_or("—")
+                            );
+                        }
+                    }
+
+                    state.delta_link = Some(new_delta_link);
+                    state.save()?;
+                    println!("\nDelta state saved — next scan will be incremental.");
+                }
+
+                OneDriveAction::Organize { client_id, dest_folder, dry_run } => {
+                    if dry_run {
+                        eprintln!("[DRY RUN] No files will be moved on OneDrive");
+                    }
+                    let client = OneDriveClient::authenticate(&client_id)?;
+                    let config = PipelineConfig { dry_run, dest_folder };
+                    let mut pipeline = OneDrivePipeline::new(client, config);
+                    let stats = pipeline.run()?;
+
+                    println!("\nOneDrive organize complete:");
+                    println!("  Scanned    : {}", stats.total_scanned);
+                    println!("  Unique     : {}", stats.unique_photos);
+                    println!("  Duplicates : {} (detected via quickXorHash, no download)", stats.duplicates);
+                    println!("  Organized  : {}", stats.organized);
+                    println!("  No date    : {} (skipped — no EXIF capture date)", stats.no_date);
+                }
+
+                OneDriveAction::Logout => {
+                    let token_path = dirs::config_dir()
+                        .map(|d| d.join("sift").join("onedrive_token.json"));
+                    let delta_path = dirs::config_dir()
+                        .map(|d| d.join("sift").join("onedrive_delta.json"));
+
+                    let mut removed = 0usize;
+                    for path in [token_path, delta_path].iter().flatten() {
+                        if path.exists() {
+                            std::fs::remove_file(path)?;
+                            removed += 1;
+                        }
+                    }
+                    if removed > 0 {
+                        println!("Logged out — cached token and delta state removed.");
+                    } else {
+                        println!("Nothing to remove (no cached session found).");
                     }
                 }
             }
